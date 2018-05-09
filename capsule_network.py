@@ -140,7 +140,6 @@ class CapsuleLoss(nn.Module):
 if __name__ == "__main__":
     from torch.optim import Adam
     from torchnet.engine import Engine
-    from torchnet.logger import VisdomPlotLogger, VisdomLogger
     from torchvision.utils import make_grid
     from torchvision.datasets.mnist import MNIST
     from tqdm import tqdm
@@ -158,16 +157,6 @@ if __name__ == "__main__":
     meter_loss = tnt.meter.AverageValueMeter()
     meter_accuracy = tnt.meter.ClassErrorMeter(accuracy=True)
     confusion_meter = tnt.meter.ConfusionMeter(NUM_CLASSES, normalized=True)
-
-    train_loss_logger = VisdomPlotLogger('line', opts={'title': 'Train Loss'})
-    train_error_logger = VisdomPlotLogger('line', opts={'title': 'Train Accuracy'})
-    test_loss_logger = VisdomPlotLogger('line', opts={'title': 'Test Loss'})
-    test_accuracy_logger = VisdomPlotLogger('line', opts={'title': 'Test Accuracy'})
-    confusion_logger = VisdomLogger('heatmap', opts={'title': 'Confusion matrix',
-                                                     'columnnames': list(range(NUM_CLASSES)),
-                                                     'rownames': list(range(NUM_CLASSES))})
-    ground_truth_logger = VisdomLogger('image', opts={'title': 'Ground Truth'})
-    reconstruction_logger = VisdomLogger('image', opts={'title': 'Reconstruction'})
 
     capsule_loss = CapsuleLoss()
 
@@ -227,33 +216,14 @@ if __name__ == "__main__":
         print('[Epoch %d] Training Loss: %.4f (Accuracy: %.2f%%)' % (
             state['epoch'], meter_loss.value()[0], meter_accuracy.value()[0]))
 
-        train_loss_logger.log(state['epoch'], meter_loss.value()[0])
-        train_error_logger.log(state['epoch'], meter_accuracy.value()[0])
-
         reset_meters()
 
         engine.test(processor, get_iterator(False))
-        test_loss_logger.log(state['epoch'], meter_loss.value()[0])
-        test_accuracy_logger.log(state['epoch'], meter_accuracy.value()[0])
-        confusion_logger.log(confusion_meter.value())
 
         print('[Epoch %d] Testing Loss: %.4f (Accuracy: %.2f%%)' % (
             state['epoch'], meter_loss.value()[0], meter_accuracy.value()[0]))
 
         torch.save(model.state_dict(), 'epochs/epoch_%d.pt' % state['epoch'])
-
-        # Reconstruction visualization.
-
-        test_sample = next(iter(get_iterator(False)))
-
-        ground_truth = (test_sample[0].unsqueeze(1).float() / 255.0)
-        _, reconstructions = model(Variable(ground_truth).cuda())
-        reconstruction = reconstructions.cpu().view_as(ground_truth).data
-
-        ground_truth_logger.log(
-            make_grid(ground_truth, nrow=int(BATCH_SIZE ** 0.5), normalize=True, range=(0, 1)).numpy())
-        reconstruction_logger.log(
-            make_grid(reconstruction, nrow=int(BATCH_SIZE ** 0.5), normalize=True, range=(0, 1)).numpy())
 
     # def on_start(state):
     #     state['epoch'] = 327
