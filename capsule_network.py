@@ -100,19 +100,22 @@ class CapsuleNet(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, reconstruct=True):
         x = F.relu(self.conv1(x), inplace=True)
         x = self.primary_capsules(x)
         x = self.digit_capsules(x).squeeze().transpose(0, 1)
 
         classes = (x ** 2).sum(dim=-1) ** 0.5
 
-        if y is None:
-            # In all batches, get the most active capsule.
-            _, max_length_indices = classes.max(dim=1)
-            y = Variable(torch.sparse.torch.eye(NUM_CLASSES)).cuda().index_select(dim=0, index=max_length_indices)
+        if reconstruct:
+            if y is None:
+                # In all batches, get the most active capsule.
+                _, max_length_indices = classes.max(dim=1)
+                y = Variable(torch.sparse.torch.eye(NUM_CLASSES)).cuda().index_select(dim=0, index=max_length_indices)
 
-        reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
+            reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1)).view(x.size(0), 28, 28)
+        else:
+            reconstructions = None
 
         return classes, reconstructions
 
